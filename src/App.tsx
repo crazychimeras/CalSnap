@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Onboarding from './views/Onboarding.jsx';
 import Dashboard from './views/Dashboard.jsx';
+import Camera from './views/Camera.jsx';
 
 function App() {
   const userProfile = localStorage.getItem('userProfile');
@@ -19,6 +20,12 @@ function App() {
           path="/dashboard"
           element={
             userProfile ? <Dashboard /> : <Navigate to="/onboarding" replace />
+          }
+        />
+        <Route
+          path="/camera"
+          element={
+            userProfile ? <Camera /> : <Navigate to="/onboarding" replace />
           }
         />
       </Routes>
