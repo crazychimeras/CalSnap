@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Onboarding from './views/Onboarding';
-import Dashboard from './views/Dashboard';
+import Onboarding from './views/Onboarding.jsx';
+import Dashboard from './views/Dashboard.jsx';
 
 function App() {
   const userProfile = localStorage.getItem('userProfile');
