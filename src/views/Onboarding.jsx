@@ -9,6 +9,7 @@ import {
   feetInchesToCm,
   cmToFeetInches
 } from '../utils/calculations';
+import { signUp, createUserProfile } from '../lib/supabase';
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -30,6 +31,10 @@ const Onboarding = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [authStep, setAuthStep] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const validateStep2 = () => {
     const newErrors = {};
@@ -175,8 +180,59 @@ const Onboarding = () => {
     setStep(4);
   };
 
-  const handleStartTracking = () => {
-    navigate('/dashboard');
+  const handleStartTracking = async () => {
+    setAuthStep('email');
+  };
+
+  const handleSignUp = async () => {
+    if (!email || !password) {
+      setErrors({ auth: 'Please enter email and password' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { user } = await signUp(email, password);
+
+      if (user) {
+        const profile = {
+          age: Number(formData.age),
+          gender: formData.gender,
+          height_cm: formData.heightUnit === 'imperial'
+            ? Math.round(feetInchesToCm(Number(formData.heightFeet), Number(formData.heightInches)))
+            : Number(formData.heightCm),
+          weight_kg: formData.weightUnit === 'imperial'
+            ? poundsToKg(Number(formData.weightLbs))
+            : Number(formData.weightKg),
+          activity_level: formData.activityLevel,
+          target_weight_kg: formData.weightUnit === 'imperial'
+            ? poundsToKg(Number(formData.targetWeightLbs))
+            : Number(formData.targetWeightKg),
+          goal: formData.goal,
+          ...calculateDailyPlan({
+            age: Number(formData.age),
+            gender: formData.gender,
+            height_cm: formData.heightUnit === 'imperial'
+              ? Math.round(feetInchesToCm(Number(formData.heightFeet), Number(formData.heightInches)))
+              : Number(formData.heightCm),
+            weight_kg: formData.weightUnit === 'imperial'
+              ? poundsToKg(Number(formData.weightLbs))
+              : Number(formData.weightKg),
+            activityLevel: formData.activityLevel,
+            goal: formData.goal,
+          })
+        };
+
+        await createUserProfile(user.id, profile);
+        localStorage.removeItem('userProfile');
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Sign up error:', error);
+      setErrors({ auth: error.message || 'Failed to create account' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
@@ -550,12 +606,65 @@ const Onboarding = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleStartTracking}
-                className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg hover:shadow-xl"
-              >
-                Start Tracking
-              </button>
+              {!authStep ? (
+                <button
+                  onClick={handleStartTracking}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg hover:shadow-xl"
+                >
+                  Start Tracking
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Create a password (min 6 characters)"
+                    />
+                  </div>
+                  {errors.auth && (
+                    <p className="text-sm text-red-500 bg-red-50 p-3 rounded-lg">{errors.auth}</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setAuthStep(null);
+                        setEmail('');
+                        setPassword('');
+                        setErrors({});
+                      }}
+                      className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                      disabled={loading}
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleSignUp}
+                      disabled={loading}
+                      className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                    >
+                      {loading ? 'Creating...' : 'Create Account'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

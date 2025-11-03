@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Settings, Camera, Plus, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings, Camera, Plus, ChevronDown, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { getMeals, signOut } from '../lib/supabase';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [userProfile, setUserProfile] = useState(null);
+  const { user, profile, setProfile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [meals, setMeals] = useState([]);
   const [totals, setTotals] = useState({
@@ -13,32 +15,31 @@ const Dashboard = () => {
     carbs: 0,
     fat: 0
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const profile = JSON.parse(localStorage.getItem('userProfile') || 'null');
-    if (!profile) {
+    if (!user) {
       navigate('/onboarding');
       return;
     }
-    setUserProfile(profile);
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!userProfile) return;
     loadMealsForDate(currentDate);
-  }, [currentDate, userProfile]);
+  }, [currentDate, user, navigate]);
 
-  const loadMealsForDate = (date) => {
-    const dateKey = formatDateKey(date);
-    const storedData = localStorage.getItem(`meals-${dateKey}`);
+  const loadMealsForDate = async (date) => {
+    if (!user) return;
 
-    if (storedData) {
-      const data = JSON.parse(storedData);
-      setMeals(data.meals || []);
-      calculateTotals(data.meals || []);
-    } else {
+    setLoading(true);
+    try {
+      const dateKey = formatDateKey(date);
+      const mealData = await getMeals(user.id, dateKey);
+      setMeals(mealData || []);
+      calculateTotals(mealData || []);
+    } catch (error) {
+      console.error('Error loading meals:', error);
       setMeals([]);
       calculateTotals([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,7 +99,7 @@ const Dashboard = () => {
   };
 
   const getMealsByType = (type) => {
-    return meals.filter(meal => meal.mealType === type);
+    return meals.filter(meal => meal.meal_type === type);
   };
 
   const getProgressColor = (current, target) => {
@@ -107,6 +108,26 @@ const Dashboard = () => {
     if (percentage >= 80) return '#fbbf24';
     return '#10b981';
   };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/onboarding');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  if (!user || !profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
+  }
+
+  const remaining = profile.daily_calories - totals.calories;
+  const isOverGoal = remaining < 0;
 
   const CircularProgress = ({ current, target }) => {
     const percentage = Math.min((current / target) * 100, 100);
@@ -181,7 +202,7 @@ const Dashboard = () => {
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
           <button
-            onClick={() => navigate('/camera')}
+            onClick={() => navigate('/camera', { state: { mealType } })}
             className="flex items-center gap-1 text-green-600 hover:text-green-700 font-medium text-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -195,7 +216,7 @@ const Dashboard = () => {
             {mealsList.map((meal) => (
               <div key={meal.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-800">{meal.foodName}</p>
+                  <p className="font-medium text-gray-800">{meal.food_name}</p>
                   <p className="text-sm text-gray-500">
                     P: {meal.protein}g · C: {meal.carbs}g · F: {meal.fat}g
                   </p>
@@ -208,17 +229,6 @@ const Dashboard = () => {
       </div>
     );
   };
-
-  if (!userProfile) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    );
-  }
-
-  const remaining = userProfile.dailyCalories - totals.calories;
-  const isOverGoal = remaining < 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 pb-24">
@@ -248,10 +258,11 @@ const Dashboard = () => {
               <ChevronRight className="w-6 h-6 text-gray-600" />
             </button>
             <button
-              onClick={() => navigate('/settings')}
+              onClick={handleSignOut}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              title="Sign out"
             >
-              <Settings className="w-6 h-6 text-gray-600" />
+              <LogOut className="w-6 h-6 text-gray-600" />
             </button>
           </div>
         </div>
@@ -262,7 +273,7 @@ const Dashboard = () => {
           <div className="flex flex-col items-center">
             <CircularProgress
               current={totals.calories}
-              target={userProfile.dailyCalories}
+              target={profile.daily_calories}
             />
             <div className="mt-4 text-center">
               <p className={`text-lg font-semibold ${isOverGoal ? 'text-red-500' : 'text-gray-600'}`}>
@@ -280,19 +291,19 @@ const Dashboard = () => {
           <MacroProgress
             label="Protein"
             current={totals.protein}
-            target={userProfile.proteinTarget}
+            target={profile.protein_target}
             color="#3b82f6"
           />
           <MacroProgress
             label="Carbs"
             current={totals.carbs}
-            target={userProfile.carbsTarget}
+            target={profile.carbs_target}
             color="#10b981"
           />
           <MacroProgress
             label="Fat"
             current={totals.fat}
-            target={userProfile.fatTarget}
+            target={profile.fat_target}
             color="#f59e0b"
           />
         </div>

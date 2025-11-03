@@ -1,10 +1,19 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
 import Onboarding from './views/Onboarding.jsx';
 import Dashboard from './views/Dashboard.jsx';
 import Camera from './views/Camera.jsx';
 
 function App() {
-  const userProfile = localStorage.getItem('userProfile');
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>
@@ -12,20 +21,20 @@ function App() {
         <Route
           path="/"
           element={
-            userProfile ? <Navigate to="/dashboard" replace /> : <Navigate to="/onboarding" replace />
+            user ? <Navigate to="/dashboard" replace /> : <Navigate to="/onboarding" replace />
           }
         />
-        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/onboarding" element={user ? <Navigate to="/dashboard" replace /> : <Onboarding />} />
         <Route
           path="/dashboard"
           element={
-            userProfile ? <Dashboard /> : <Navigate to="/onboarding" replace />
+            user ? <Dashboard /> : <Navigate to="/onboarding" replace />
           }
         />
         <Route
           path="/camera"
           element={
-            userProfile ? <Camera /> : <Navigate to="/onboarding" replace />
+            user ? <Camera /> : <Navigate to="/onboarding" replace />
           }
         />
       </Routes>
