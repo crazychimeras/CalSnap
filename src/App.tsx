@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import Landing from './views/Landing.jsx';
 import Onboarding from './views/Onboarding.jsx';
 import Dashboard from './views/Dashboard.jsx';
 import Camera from './views/Camera.jsx';
@@ -21,20 +22,20 @@ function App() {
         <Route
           path="/"
           element={
-            user ? <Navigate to="/dashboard" replace /> : <Navigate to="/onboarding" replace />
+            user ? <Navigate to="/dashboard" replace /> : <Landing />
           }
         />
         <Route path="/onboarding" element={user ? <Navigate to="/dashboard" replace /> : <Onboarding />} />
         <Route
           path="/dashboard"
           element={
-            user ? <Dashboard /> : <Navigate to="/onboarding" replace />
+            user ? <Dashboard /> : <Navigate to="/" replace />
           }
         />
         <Route
           path="/camera"
           element={
-            user ? <Camera /> : <Navigate to="/onboarding" replace />
+            user ? <Camera /> : <Navigate to="/" replace />
           }
         />
       </Routes>
